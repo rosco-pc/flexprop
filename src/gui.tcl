@@ -1,5 +1,5 @@
 # Simple GUI for Spin
-# Copyright 2018-2020 Total Spectrum Software
+# Copyright 2018-2021 Total Spectrum Software
 # Distributed under the terms of the MIT license;
 # see License.txt for details.
 #
@@ -45,7 +45,7 @@ if { $tcl_platform(os) == "Darwin" && [file exists "$ROOTDIR/bin/flexspin.mac"] 
 if { [file exists "$ROOTDIR/.flexprop.config"] } {
     # portable installation
     set CONFIGDIR $ROOTDIR
-} elseif { [info exists ::env(HOME) ] } {    
+} elseif { [info exists ::env(HOME) ] && [file isdirectory $::env(HOME)] } {    
     set CONFIGDIR $::env(HOME)
 } else {
     set CONFIGDIR $ROOTDIR
@@ -362,8 +362,10 @@ proc uread {name} {
 
 # exit the program
 proc exitProgram { } {
-    checkAllChanges
-    config_save
+    catch {
+	checkAllChanges
+	config_save
+    } errMsg
     exit
 }
 
@@ -1212,19 +1214,21 @@ proc setSyntaxHighlightingBasic {w} {
     
     foreach i $keywordslower {
 	lappend keywordsupper [string toupper $i]
+	lappend keywordsupper [string totitle $i]
     }
     set keywords [concat $keywordsupper $keywordslower]
     
     foreach i $typewordslower {
 	lappend typewordsupper [string toupper $i]
+	lappend typewordsupper [string totitle $i]
     }
     set typewords [concat $typewordsupper $typewordslower]
 
     foreach i $opwordslower {
 	lappend opwordsupper [string toupper $i]
+	lappend opwordsupper [string totitle $i]
     }
     set opwords [concat $opwordsupper $opwordslower]
-
     
     $w configure -commentstyle basic
     
@@ -1293,6 +1297,10 @@ proc rescanPorts { } {
     }
 }
 
+# actually read in our config info
+config_open
+
+# now set up the menus and widgets
 menu .popup1 -tearoff 0
 .popup1 add command -label "Cut" -command {event generate [focus] <<Cut>>}
 .popup1 add command -label "Copy" -command {event generate [focus] <<Copy>>}
@@ -1386,9 +1394,9 @@ set comport_last [.mbar.comport index end]
 .mbar.special add command -label "Enter P2 ROM TAQOZ" -command { doSpecial "-xTAQOZ" "" }
 .mbar.special add command -label "Load current buffer into TAQOZ" -command { doSpecial "-xTAQOZ" [scriptSendCurFile] }
 .mbar.special add separator
-#.mbar.special add command -label "Run uPython on P2" -command { doSpecial "samples/upython/upython.binary" "" }
+.mbar.special add command -label "Command shell for P2" -command { doSpecial "samples/shell/shell.binary" "" }
 #.mbar.special add command -label "Load current buffer into uPython on P2" -command { doSpecial "samples/upython/upython.binary" [scriptSendCurFile] }
-#.mbar.special add separator
+.mbar.special add separator
 .mbar.special add command -label "Run proplisp on P2" -command { doSpecial "samples/proplisp/lisp.binary" "" }
 .mbar.special add command -label "Load current buffer into proplisp on P2" -command { doSpecial "samples/proplisp/lisp.binary" [scriptSendCurFile] }
 .mbar.special add separator
@@ -1495,9 +1503,6 @@ wm protocol . WM_DELETE_WINDOW {
 #autoscroll::autoscroll .p.bot.v
 #autoscroll::autoscroll .p.bot.h
 
-# actually read in our config info
-config_open
-
 # font configuration stuff
 proc doSelectFont {} {
     global config
@@ -1544,6 +1549,7 @@ proc resetFont {w} {
 }
 
 proc resetBottomFont {w} {
+    global config
     set fnt [font actual $w]
     set config(botfont) $fnt
     .p.bot.txt configure -font $fnt
@@ -2023,10 +2029,12 @@ proc searchrep {t {replace 1}} {
        grid columnconfigure $w 1 -weight 1
        $t tag config hilite -background yellow
        focus $w.f
+       $w.f selection range 0 end
    } else {
        raise $w.f
        focus $w
        $w.f icursor end
+       $w.f selection range 0 end
    }
     bind $w <Destroy> "searchrep'done $t"
 }

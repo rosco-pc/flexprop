@@ -29,10 +29,6 @@ ifndef OS
 	endif
 endif
 
-ifndef OPENSPIN
-	OPENSPIN := $(shell which openspin)
-endif
-
 errmessage:
 	@echo
 	@echo "Usage:"
@@ -46,10 +42,6 @@ errmessage:
 	@echo "make zip creates a flexprop.zip for Windows"
 	@echo "    This requires cross tools and is probably not what you want"
 	@echo
-ifndef OPENSPIN
-	@echo "Note that the P1 version of flexprop depends on openspin being installed; if it is not,"
-	@echo "  then only P2 support is enabled"
-endif
 
 #
 # binaries to make
@@ -58,13 +50,8 @@ endif
 EXEBINFILES=bin/flexspin.exe bin/flexcc.exe bin/loadp2.exe bin/flexspin.mac bin/flexcc.mac bin/loadp2.mac bin/mac_terminal.sh 
 EXEFILES=flexprop.exe $(EXEBINFILES)
 
-ifdef OPENSPIN
 WIN_BINARIES=$(EXEBINFILES) bin/proploader.exe bin/proploader.mac
 NATIVE_BINARIES=bin/flexspin bin/flexcc bin/loadp2 bin/proploader
-else
-WIN_BINARIES=$(EXEBINFILES)
-NATIVE_BINARIES=bin/flexspin bin/flexcc bin/loadp2
-endif
 
 install: flexprop_base $(NATIVE_BINARIES)
 	mkdir -p $(INSTALL)
@@ -117,6 +104,7 @@ SIGN ?= ./spin2cpp/sign.dummy.sh
 
 flexprop.zip: flexprop_base flexprop.exe $(WIN_BINARIES)
 	cp -r flexprop.exe flexprop/
+	cp -r tcl_library flexprop/
 	cp -r $(WIN_BINARIES) flexprop/bin
 	rm -f flexprop.zip
 	zip -r flexprop.zip flexprop
@@ -210,7 +198,7 @@ spin2cpp/build/flexcc:
 	make -C spin2cpp
 
 proploader-$(OS)-build/bin/proploader: bin/flexspin
-	make -C PropLoader OS=$(OS) SPINCMP=$(OPENSPIN)
+	make -C PropLoader OS=$(OS) SPINCMP="`pwd`/bin/flexspin"
 
 loadp2/build/loadp2: bin/flexspin
 	make -C loadp2 P2ASM="`pwd`/bin/flexspin -2 -I`pwd`/spin2cpp/include"
