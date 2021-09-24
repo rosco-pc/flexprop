@@ -53,12 +53,14 @@ EXEFILES=flexprop.exe $(EXEBINFILES)
 WIN_BINARIES=$(EXEBINFILES) bin/proploader.exe bin/proploader.mac
 NATIVE_BINARIES=bin/flexspin bin/flexcc bin/loadp2 bin/proploader
 
-install: flexprop_base $(NATIVE_BINARIES)
+install: flexprop_base flexprop.bin $(NATIVE_BINARIES)
 	mkdir -p $(INSTALL)
 	mkdir -p flexprop/bin
 	cp -r $(NATIVE_BINARIES) flexprop/bin
 	cp -r mac_scripts/* flexprop/bin
 	cp -r flexprop/* $(INSTALL)
+	cp -rp flexprop.bin $(INSTALL)/flexprop
+	cp -rp tcl_library $(INSTALL)/
 
 # where the Tcl and Tk source code are checked out (side by side)
 TCLROOT ?= /home/ersmith/src/Tcl
@@ -79,7 +81,18 @@ RES_RC=$(RESDIR)/wish.rc
 RESOBJ=$(RESDIR)/wish.res.o
 
 WINTK_INC = -I$(TCLROOT)/tk/xlib -I$(TCLROOT)/tcl/win -I$(TCLROOT)/tcl/generic -I$(TCLROOT)/tk/win -I$(TCLROOT)/tk/generic
-WINTK_LIBS = $(TCLROOT)/tk/win/libtk87.a $(TCLROOT)/tk/win/libtkstub87.a $(TCLROOT)/tcl/win/libtcl90.a $(TCLROOT)/tcl/win/libtclstub90.a $(WINLIBS) $(RESOBJ) -mwindows -pipe -static-libgcc -municode
+WINTK_LIBS = $(TCLROOT)/tk/win/libtk86.a $(TCLROOT)/tk/win/libtkstub86.a $(TCLROOT)/tcl/win/libtcl86.a $(TCLROOT)/tcl/win/libtclstub86.a $(WINLIBS) $(RESOBJ) -mwindows -pipe -static-libgcc -municode
+
+ifeq ($(OS),linux)
+NATIVETK_INC=-I/usr/include/tcl8.6
+XLIBS=-lfontconfig -lXft -lXss -lXext -lX11
+NATIVETK_LIBS=-ltk8.6 -ltcl8.6 $(XLIBS) -lz -ldl -lpthread -lm
+endif
+ifeq ($(OS),macosx)
+# These are locations as specified by Homebrew
+NATIVETK_INC =-I/usr/local/opt/tcl-tk/include
+NATIVETK_LIBS=-L/usr/local/opt/tcl-tk/lib -ltk8.6 -ltcl8.6 -lz -lpthread -lm
+endif
 
 VPATH=.:spin2cpp/doc
 
@@ -102,15 +115,20 @@ BOARDFILES=board/P2ES_flashloader.bin board/P2ES_flashloader.spin2 board/P2ES_sd
 
 SIGN ?= ./spin2cpp/sign.dummy.sh
 
-flexprop.zip: flexprop_base flexprop.exe $(WIN_BINARIES)
+flexprop.zip: flexprop_base flexprop.exe flexprop.bin $(WIN_BINARIES)
 	cp -r flexprop.exe flexprop/
+	cp -r flexprop.bin flexprop/flexprop.linux
+#	cp -rf flexprop.mac flexprop/flexprop.mac
 	cp -r tcl_library flexprop/
 	cp -r $(WIN_BINARIES) flexprop/bin
 	rm -f flexprop.zip
 	zip -r flexprop.zip flexprop
 
-flexprop.exe: src/flexprop.c $(RESOBJ)
-	$(WINGCC) $(WINCFLAGS) -o flexprop.exe src/flexprop.c $(WINTK_INC) $(WINTK_LIBS)
+flexprop.bin: src/flexprop_native.c
+	$(CC) $(CFLAGS) -o flexprop.bin src/flexprop_native.c $(NATIVETK_INC) $(NATIVETK_LIBS)
+
+flexprop.exe: src/flexprop_win.c $(RESOBJ)
+	$(WINGCC) $(WINCFLAGS) -o flexprop.exe src/flexprop_win.c $(WINTK_INC) $(WINTK_LIBS)
 	$(SIGN) flexprop
 	mv flexprop.signed.exe flexprop.exe
 
@@ -159,7 +177,6 @@ endif
 	cp -r spin2cpp/include flexprop/
 	cp -r doc/*.txt flexprop/doc
 	cp -r board/* flexprop/board
-	cp -r flexprop.tcl flexprop/
 
 .PHONY: flexprop_base
 

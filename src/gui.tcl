@@ -7,12 +7,28 @@
 # The guts of the IDE GUI
 #
 set aboutMsg "
-GUI tool for FlexProp
+GUI tool for FlexSpin
 Version $spin2gui_version
 Copyright 2018-2021 Total Spectrum Software Inc.
 ------
 There is no warranty and no guarantee that
 output will be correct.   
+"
+
+# warnings about experimental features
+set bcversion 1
+set bcMsg "
+ROM bytecode is designed for Spin 1 only. \
+Some C / BASIC features are unimplemented and/or may not \
+work properly.
+"
+
+# warnings about experimental features
+set nuversion 1
+set nuMsg "
+P2 bytecode is still under heavy development.
+Performance (both size/speed) is not in final state yet.
+Some features may be unimplemented or not work properly.
 "
 
 # some Tcl/Tk config
@@ -91,6 +107,13 @@ set config(savesession) 1
 set config(syntaxhighlight) 1
 set config(autoindent) 1
 
+# we provide some warnings to the user about experimental features
+# start the version off at 0, and provide a popup when we find the
+# current note version is > the version
+
+set config(note_nuversion) 0
+set config(note_bcversion) 0
+
 #
 # filenames($w) gives the file name in window $w, for all of the various tabs
 # filetimes($w) gives the last modified time for that file
@@ -117,11 +140,31 @@ proc setShadowP1Defaults {} {
     global ROOTDIR
     global EXE
     
-    set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" -D_BAUD=%r -l %O %I \"%S\""
+    set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" --tabs=%t -D_BAUD=%r -l %O %I \"%S\""
     set shadow(runcmd) "$WINPREFIX \"%D/bin/proploader$EXE\" -Dbaudrate=%r %P \"%B\" -r -t -k"
     set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
     set shadow(flashcmd) "$WINPREFIX \"%D/bin/proploader$EXE\" -Dbaudrate=%r %P \"%B\" -e -k"
     set shadow(baud) 115200
+}
+# provide some default settings
+proc setShadowP1BytecodeDefaults {} {
+    global shadow
+    global WINPREFIX
+    global ROOTDIR
+    global EXE
+    global config
+    global bcversion
+    global bcMsg
+    
+    set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" --interp=rom --tabs=%t -D_BAUD=%r -l %O %I \"%S\""
+    set shadow(runcmd) "$WINPREFIX \"%D/bin/proploader$EXE\" -Dbaudrate=%r %P \"%B\" -r -t -k"
+    set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
+    set shadow(flashcmd) "$WINPREFIX \"%D/bin/proploader$EXE\" -Dbaudrate=%r %P \"%B\" -e -k"
+    set shadow(baud) 115200
+    if { $config(note_bcversion) != $bcversion } {
+	set config(note_bcversion) $bcversion
+	tk_messageBox -icon warning -type ok -message $bcMsg
+    }
 }
 proc setShadowP2aDefaults {} {
     global shadow
@@ -129,7 +172,7 @@ proc setShadowP2aDefaults {} {
     global ROOTDIR
     global EXE
     
-    set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" -2a -l -D_BAUD=%r %O %I \"%S\""
+    set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" -2a -l --tabs=%t -D_BAUD=%r %O %I \"%S\""
     set shadow(runcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"%B\" \"-9%b\" -k"
     set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
     set shadow(flashcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"@0=%F,@8000+%B\" -t -k"
@@ -141,11 +184,31 @@ proc setShadowP2bDefaults {} {
     global ROOTDIR
     global EXE
     
-    set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" -2 -l -D_BAUD=%r %O %I \"%S\""
+    set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" -2 -l --tabs=%t -D_BAUD=%r %O %I \"%S\""
     set shadow(runcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"%B\" \"-9%b\" -k"
     set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
     set shadow(flashcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"@0=%F,@8000+%B\" -t -k"
     set shadow(baud) 230400
+}
+proc setShadowP2NuDefaults {} {
+    global config
+    global shadow
+    global WINPREFIX
+    global ROOTDIR
+    global EXE
+    global nuversion
+    global nuMsg
+
+    set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" -2nu -l --tabs=%t -D_BAUD=%r %O %I \"%S\""
+    set shadow(runcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"%B\" \"-9%b\" -k"
+    set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
+    set shadow(flashcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"@0=%F,@8000+%B\" -t -k"
+    set shadow(baud) 230400
+
+    if { $config(note_nuversion) != $nuversion } {
+	set config(note_nuversion) $nuversion
+	tk_messageBox -icon warning -type ok -message $nuMsg
+    }
 }
 proc copyShadowToConfig {} {
     global config
@@ -163,18 +226,19 @@ proc checkPropVersion {} {
     global PROP_VERSION
     if {[string first " -2a " $config(compilecmd)] != -1} {
 	set PROP_VERSION "P2a"
-	set otherProp "P1"
+    } elseif {[string first " -2nu" $config(compilecmd)] != -1} {
+	set PROP_VERSION "P2 ByteCode"
     } elseif {[string first " -2" $config(compilecmd)] != -1} {
 	set PROP_VERSION "P2"
-	set otherProp "P1"
+    } elseif {[string first " --interp=rom" $config(compilecmd)] != -1} {
+	set PROP_VERSION "P1 ByteCode"
     } else {
 	set PROP_VERSION "P1"
-	set otherProp "P2"
     }
     if { [winfo exists .toolbar] } {
 	.toolbar.compile configure -text "Compile for $PROP_VERSION"
 	.toolbar.compileRun configure -text "Compile & Run on $PROP_VERSION"
-	.toolbar.configmsg configure -text "    Use Commands>Configure Commands... to switch to $otherProp"
+	.toolbar.configmsg configure -text "    Use Commands>Configure Commands... to switch targets"
     }
 }
 
@@ -503,9 +567,11 @@ set BinTypes {
 proc checkChanges {w} {
     global filenames
     set s $filenames($w)
-    if { $s eq "" } {
-	return
-    }
+    # if these lines are left in then new files
+    # get closed without checking... not good
+    #if { $s eq "" } {
+    #	return
+    #}
     if {[$w.txt edit modified]==1} {
 	set answer [tk_messageBox -icon question -type yesno -message "Save file $s?" -default yes]
 	if { $answer eq "yes" } {
@@ -925,9 +991,10 @@ proc doAbout {} {
     tk_messageBox -icon info -type ok -message "FlexProp" -detail $aboutMsg
 }
 
-proc doHelp { file title } {
+proc doGuiHelp { } {
     global ROOTDIR
-    
+    set file "$ROOTDIR/doc/help.txt"
+    set title "Help"
     loadHelpFile $file $title
 }
 
@@ -1359,7 +1426,8 @@ menu .mbar.help -tearoff 0
 .mbar.options add radiobutton -label "Use 16.16 fixed point in place of floats" -variable FIXEDREAL -value "--fixedreal"
 .mbar.options add separator
 .mbar.options add radiobutton -label "Debug disabled" -variable DEBUG_OPT -value "-gnone"
-.mbar.options add radiobutton -label "Debug enabled" -variable DEBUG_OPT -value "-g"
+.mbar.options add radiobutton -label "Print debug" -variable DEBUG_OPT -value "-g"
+.mbar.options add radiobutton -label "BRK based debug" -variable DEBUG_OPT -value "-gbrk"
 #.mbar.options add separator
 #.mbar.options add radiobutton -label "No Compression" -variable COMPRESS -value "-z0"
 #.mbar.options add radiobutton -label "Compress Code" -variable COMPRESS -value "-z1"
@@ -1404,7 +1472,7 @@ set comport_last [.mbar.comport index end]
 .mbar.special add command -label "Terminal only" -command { doSpecial "-n" "-t" }
 
 .mbar add cascade -menu .mbar.help -label Help
-.mbar.help add command -label "GUI" -command { doHelp "$ROOTDIR/doc/help.txt" "Help" }
+.mbar.help add command -label "GUI" -command { doGuiHelp }
 .mbar.help add command -label "General compiler documentation" -command { launchBrowser "file://$ROOTDIR/doc/general.html" }
 .mbar.help add command -label "BASIC Language" -command { launchBrowser "file://$ROOTDIR/doc/basic.html" }
 .mbar.help add command -label "C Language" -command { launchBrowser "file://$ROOTDIR/doc/c.html" }
@@ -1431,7 +1499,8 @@ grid .p -column 0 -row 1 -columnspan 2 -rowspan 1 -sticky nsew
 ttk::button .toolbar.compile -text "Compile for P2" -command doCompile
 ttk::button .toolbar.runBinary -text "Run Binary" -command doLoadRun
 ttk::button .toolbar.compileRun -text "Compile & Run on P2" -command doCompileRun
-label  .toolbar.configmsg -text "   Use Commands>Configure Commands... to switch to P1" -font TkSmallCaptionFont
+label  .toolbar.configmsg -text "   Use Commands>Configure Commands... to switch targets" -font TkSmallCaptionFont
+checkPropVersion
 
 grid .toolbar.compile .toolbar.runBinary .toolbar.compileRun .toolbar.configmsg -sticky nsew
 
@@ -1696,7 +1765,7 @@ proc mapPercent {str} {
     } else {
 	set srcfile "undefined"
     }
-    set percentmap [ list "%%" "%" "%D" $ROOTDIR "%I" [get_includepath] "%L" $config(library) "%S" $srcfile "%B" $BINFILE "%b" $bindir "%O" $fulloptions "%P" $fullcomport "%p" $COMPORT "%F" $config(flashprogram) "%r" $config(baud)]
+    set percentmap [ list "%%" "%" "%D" $ROOTDIR "%I" [get_includepath] "%L" $config(library) "%S" $srcfile "%B" $BINFILE "%b" $bindir "%O" $fulloptions "%P" $fullcomport "%p" $COMPORT "%F" $config(flashprogram) "%r" $config(baud) "%t" $config(tabwidth)]
     set result [string map $percentmap $str]
     return $result
 }
@@ -1907,6 +1976,7 @@ set cmddialoghelptext {
     %P = Replace with port to use prefixed by -p
     %r = Replace with current baud rate
     %S = Replace with current source file name
+    %t = Replace with tab width
     %% = Insert a % character
 }
 proc copyShadowClose {w} {
@@ -1948,7 +2018,9 @@ proc doRunOptions {} {
 
 #    ttk::button .runopts.change.p2a -text "P2a defaults" -command setShadowP2aDefaults
     ttk::button .runopts.change.p2b -text "P2 defaults" -command setShadowP2bDefaults
+    ttk::button .runopts.change.p2nu -text "P2 Bytecode defaults" -command setShadowP2NuDefaults
     ttk::button .runopts.change.p1 -text "P1 defaults" -command setShadowP1Defaults
+    ttk::button .runopts.change.p1bc -text "P1 Bytecode defaults" -command setShadowP1BytecodeDefaults
     
     ttk::button .runopts.end.ok -text " OK " -command {copyShadowClose .runopts}
     ttk::button .runopts.end.cancel -text " Cancel " -command {destroy .runopts}
@@ -1964,7 +2036,7 @@ proc doRunOptions {} {
     grid .runopts.b.runtext -sticky nsew
     grid .runopts.c.flashtext -sticky nsew
 
-    grid .runopts.change.p2b .runopts.change.p1 -sticky nsew
+    grid .runopts.change.p2b .runopts.change.p2nu .runopts.change.p1 .runopts.change.p1bc -sticky nsew
     grid .runopts.end.ok .runopts.end.cancel -sticky nsew
     
     grid columnconfigure .runopts.a 0 -weight 1
@@ -2109,6 +2181,17 @@ set BINFILE ""
 if { [tk windowingsystem] == "aqua" } {
     proc ::tk::mac::Quit {} {
         exitProgram
+    }
+    proc ::tk::mac::ShowHelp {} {
+	doGuiHelp
+    }
+    proc ::tk::mac::OpenDocument {args} {
+	foreach f $args {
+	    loadSourceFile $f
+	}
+    }
+    proc tkAboutDialog {} {
+	doAbout
     }
 }
 

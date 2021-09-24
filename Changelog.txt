@@ -1,3 +1,17 @@
+Version 6.0.0
+- Added bytecode options to menus
+- Built flexprop binary for MacOS
+
+Version 5.4.1
+- Updated loadp2 to scan more serial ports on Windows
+
+Version 5.4.0
+- Passed tab settings to flexspin to work around some indentation issues in Spin
+
+Version 5.3.2
+- Extended checks for saving modified files to include new files
+- Modified terminal programs to also exit on Control-Z
+
 Version 5.3.1
 - Added a special menu item for the command shell
 
