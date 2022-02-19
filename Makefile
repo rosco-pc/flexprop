@@ -48,9 +48,11 @@ errmessage:
 #
 
 EXEBINFILES=bin/flexspin.exe bin/flexcc.exe bin/loadp2.exe bin/flexspin.mac bin/flexcc.mac bin/loadp2.mac bin/mac_terminal.sh 
+#EXEBINFILES=bin/flexspin.exe bin/flexcc.exe bin/loadp2.exe
 EXEFILES=flexprop.exe $(EXEBINFILES)
 
 WIN_BINARIES=$(EXEBINFILES) bin/proploader.exe bin/proploader.mac
+#WIN_BINARIES=$(EXEBINFILES) bin/proploader.exe
 NATIVE_BINARIES=bin/flexspin bin/flexcc bin/loadp2 bin/proploader
 
 install: flexprop_base flexprop.bin $(NATIVE_BINARIES)
@@ -70,6 +72,7 @@ TCLROOT ?= /home/ersmith/src/Tcl
 # the .pdfs
 PANDOC := pandoc
 PANDOC_EXISTS := $(shell $(PANDOC) --version 2>/dev/null)
+TCLSH := tclsh8.6
 
 WINGCC = i686-w64-mingw32-gcc
 WINRC = i686-w64-mingw32-windres
@@ -117,9 +120,9 @@ SIGN ?= ./spin2cpp/sign.dummy.sh
 
 flexprop.zip: flexprop_base flexprop.exe flexprop.bin $(WIN_BINARIES)
 	cp -r flexprop.exe flexprop/
-	cp -r flexprop.bin flexprop/flexprop.linux
-#	cp -rf flexprop.mac flexprop/flexprop.mac
 	cp -r tcl_library flexprop/
+	cp -rf MACOSX/flexprop.mac flexprop/flexprop
+	cp -rf MACOSX/*.dylib flexprop/tcl_library/
 	cp -r $(WIN_BINARIES) flexprop/bin
 	rm -f flexprop.zip
 	zip -r flexprop.zip flexprop
@@ -158,6 +161,7 @@ clean:
 	rm -rf samples/$(SUBSAMPLES)/*.binary
 	rm -rf $(RESOBJ)
 	rm -rf pandoc.yml
+	rm -rf src/version.tcl
 
 flexprop_base: src/version.tcl src/makepandoc.tcl $(BOARDFILES) $(PDFFILES) $(HTMLFILES)
 	mkdir -p flexprop/bin
@@ -165,8 +169,8 @@ flexprop_base: src/version.tcl src/makepandoc.tcl $(BOARDFILES) $(PDFFILES) $(HT
 	mkdir -p flexprop/board
 	cp -r README.md License.txt samples src flexprop
 ifdef PANDOC_EXISTS
-	cp -r $(PDFFILES) flexprop/doc
-	cp -r $(HTMLFILES) flexprop/doc
+	-cp -r $(PDFFILES) flexprop/doc
+	-cp -r $(HTMLFILES) flexprop/doc
 endif
 	cp -r spin2cpp/doc/* flexprop/doc
 	cp -r spin2cpp/Changelog.txt flexprop/doc/Changelog-compiler.txt
@@ -183,14 +187,14 @@ endif
 # rules for building PDF files
 
 %.pdf: %.md
-	tclsh src/makepandoc.tcl $< > pandoc.yml
-	$(PANDOC) --metadata-file=pandoc.yml -s --toc -f gfm -t latex -o $@ $<
+	$(TCLSH) src/makepandoc.tcl $< > pandoc.yml
+	-$(PANDOC) --metadata-file=pandoc.yml -s --toc -f gfm -t latex -o $@ $<
 
 # rules for building PDF files
 
 %.html: %.md
-	tclsh src/makepandoc.tcl $< > pandoc.yml
-	$(PANDOC) --metadata-file=pandoc.yml -s --toc -f gfm -o $@ $<
+	$(TCLSH) src/makepandoc.tcl $< > pandoc.yml
+	-$(PANDOC) --metadata-file=pandoc.yml -s --toc -f gfm -o $@ $<
 
 # rules for native binaries
 

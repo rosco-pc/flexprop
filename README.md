@@ -77,29 +77,30 @@ Create a directory called "flexprop" (or whatever you'd like) and unpack the .zi
 
 ## Installation on Mac OS X
 
-For Mac OS X, it's recommended to run the `flexprop.mac` program from a command line (although it should work from the Finder as well, that just isn't tested as much). Pre-built binaries of the command line tools like `flexspin` and `loadp2` are provided. You may get a Gatekeeper warning about the binaries; if so you'll have to tell Gatekeeper to run them anyway.
+For Mac OS X, it's recommended to run the `flexprop` program from a command line (although it should work from the Finder as well, that just isn't tested as much). Pre-built binaries of the command line tools like `flexspin` and `loadp2` are provided. You may get a Gatekeeper warning about the binaries; if so you'll have to tell Gatekeeper to run them anyway.
 
 ## Installation on Linux
 
-Pre-built binaries are included for Linux x64, as `flexprop.linux`. For other architectures, build from source (see directions below).
+At the moment you'll have to build from source on Linux. Instructions are given below.
 
 ## Building from source
 
 ### Linux
 
-Here are complete steps for building from scratch on a generic Ubuntu based platform. Note that the first few steps (setting up a directory for the source code) may be tweaked to suit your wishes.
+Here are complete steps for building from scratch on a generic Ubuntu based platform. Note that the first few steps (setting up a directory for the source code) may be tweaked to suit your wishes. Also note that the steps involving `texlive-latex-recommended` and `pandoc` are only required for formatting the documentation; if you only want the binaries you may skip these.
 ```
 cd $HOME
 mkdir -p src
 cd src
 sudo apt-get update
 sudo apt-get install build-essential
-sudo apt-get install bison
-sudo apt-get install git
-sudo apt-get install tk8.6-dev
+sudo apt-get install bison git tk8.6-dev
+sudo apt-get install texlive-latex-recommended pandoc
 git clone --recursive https://github.com/totalspectrum/flexprop
 cd flexprop
-make install
+make install INSTALL=~/flexprop
+cd ~/flexprop
+./flexprop
 ```
 
 Once the build is finished, the final flexprop installation will be in $HOME/flexprop. You can change this to another directory by adding an `INSTALL=<dir>` in the `make install` step, e.g.
@@ -114,6 +115,15 @@ To run, go to the flexprop installation directory and run `./flexprop`.
 You'll need to install tcl-tk development packages. I use homebrew for this, and installed with:
 ```
 brew install tcl-tk
+```
+Then you can build with something like:
+```
+cd $HOME
+mkdir -p src
+cd src
+git clone --recursive https://github.com/totalspectrum/flexprop
+cd flexprop
+make install
 ```
 
 ## Basic Usage
@@ -137,9 +147,9 @@ Under the `File` menu is an option for viewing the listing file, which shows the
 
 ## High level languages
 
-The main advantage of FlexProp over PNut (the "official" development tool for the Prop2) is that PNut supports only Spin 2, whereas FlexProp supports Spin 1, Spin 2, BASIC, and C. You can basically write ordinary Spin code, with Prop2 assembly code in the DAT section (instead of Prop1 assembly code). This makes prototyping your applications much easier.
+The main advantage of FlexProp over PNut (the "official" development tool for the Prop2) is that PNut supports only Spin 2, whereas FlexProp supports Spin 1, Spin 2, BASIC, and C. You can write ordinary Spin1 code, with Prop2 assembly code in the DAT section (instead of Prop1 assembly code). This makes porting code from P1 easier.
 
-The code is compiled to P2 assembler by flexspin. This is somewhat different from the way Spin traditionally worked on the Prop1, where Spin code is typically compiled to bytecode and interpreted. (Note that flexspin does work for Prop1, and compiles to P1 assembler in that case.)
+The code is compiled to P2 assembler by flexspin. This is somewhat different from the way Spin traditionally worked on the Prop1, where Spin code is typically compiled to bytecode and interpreted. (Note that flexspin does work for Prop1, and compiles to P1 assembler in that case.) There is now an experimental bytecode compiler, which you may select in the Commands > Configure Commands... menu (click on "P1 bytecode defaults").
 
 Documentation for the various languages supported is in the `doc` folder of the unpacked flexprop. BASIC is the best documented. The Spin documentation assumes familiarity with the original (Propeller1) Spin manual, and outlines the differences in the language flexspin accepts. The C documentation is a placeholder for now and mostly covers the flexspin specific extensions to C.
 
@@ -147,9 +157,9 @@ Documentation for the various languages supported is in the `doc` folder of the 
 
 The scripts used are in the `src` subdirectory, so you can customize them to your heart's content. The main `flexprop.exe` program is basically just the Tcl/Tk interpreter (from the standard Tk distribution) with a tiny startup script that reads `src/gui.tcl`.
 
-# Supporting FlexPropGUI development
+# Supporting FlexProp development
 
-If you find FlexPropGUI useful, please contribute to support its development. Contributions of code, documentation, and other suggestions are welcome. Monetary donations are also very welcome. The generous donations of our supporters on Patreon have enabled us to provide a signed Windows binary.
+If you find FlexProp useful, please contribute to support its development. Contributions of code, documentation, and other suggestions are welcome. Monetary donations are also very welcome. The generous donations of our supporters on Patreon have enabled us to provide a signed Windows binary.
 
 To support FlexProp on Patreon: https://patreon.com/totalspectrum
 To support FlexProp on Paypal:  https://paypal.me/totalspectrum

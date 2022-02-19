@@ -22,17 +22,27 @@ The Edit menu is again pretty self-explanatory. The Undo/Redo functionality is q
 
 ### Options
 
-The Options menu lets you change compiler and editor options. For now just the optimization level can be changed. The default optimization level is probably suitable for most purposes.
+The Options menu lets you change compiler and editor options, such as optimization level, debug mode, and warning levels.
+
+#### Optimization
 
 "No Optimization" is only recommended for checking for compiler bugs (if the program works with no optimization but fails with optimization enabled, then either there's a timing issue or a compiler bug).
 
-"Default optimization" is the normal level of optimization.
+"Default optimization" is the normal level of optimization, and is recommended.
 
 "Full Optimization" will often produce faster code, but it will typically consume more resources (including COG memory).
+
+#### Warnings
 
 "No extra warnings" means the compiler will only warn about serious problems.
 
 "Enable compatibility warnings" will cause the compiler to also warn about some differences between flexspin and the official Spin2 compiler. Fixing these warnings will make porting your code to the Parallax compiler easier (although there still may be issues!)
+
+#### Runtime Character Set
+
+The compiler's input is always Unicode (typically encoded as UTF-8), but at runtime some libraries may use other character sets. For example, when using a TV driver with the Parallax font it may be useful to use the Parallax OEM character set.
+
+#### Floating Point
 
 "Use IEEE floating point" is the default; the compiler uses IEEE format binary floating point for floating point values in all languages.
 
@@ -42,9 +52,17 @@ The Options menu lets you change compiler and editor options. For now just the o
 
 "Debug enabled" turns on DEBUG, allowing the DEBUG() statements to be compiled and executed. Note that not all Spin2 DEBUG() commands are supported; see the general documentation for details.
 
+#### Editor Options
+
 The "Editor Options..." dialog allows you to change the way the source code editor looks, e.g. changing the font used for the text, or the tab settings. It also lets you change the font used for the compiler output window, and has an option to automatically load files changed by external programs (normally flexprop will prompt you to reload if it notices a change).
 
 The "Save session on exit" option, if enabled, causes the editor to reload any previously open files each time it is started.
+
+#### Use Internal Terminal
+
+Older versions of FlexProp ran the loader with an external terminal program, such as cmd.exe on Windows. This is still an option, but there are also two built in (internal) terminal windows supported by FlexProp, an ANSI compatible one and a PST compatible one. They differ in what codes are used to control the cursor.
+
+The built in terminals are still experimental and probably does not correctly interpret all escape sequences. However, they are able to detect and parse some of the Spin2 DEBUG commands, such as those to open a TERM or PLOT window.
 
 ### Commands
 
@@ -52,13 +70,19 @@ The Commands menu allow you to compile, run a binary, or both compile and run. T
 
 "Run Binary on device..." allows you to choose a binary that you compiled off-line (or that was compiled earlier) and run it on the device.
 
-"Compile and Flash" and "Flash binary file..." are like the run options, but program the binary into the device. The default is to program the device's SPI flash. For P2 boards, the exact program to use for flashing may be selected with the "Choose P2 flash program..."  menu. For example, choosing "P2ES_sdcard.bin" will cause the binary to be placed on an SD card instead of in the SPI flash.
+"Compile and Flash" and "Flash binary file..." are like the run options, but program the binary into the device.
 
 ### Ports
 
-Presents a menu of serial port speeds and ports that may be selected.  The default is to tell the loader program (loadp2 or proploader) to scan for a port to use. But you may override this by selecting a specific serial port.
+Presents a menu of serial ports that may be selected.  The default is to tell the loader program (loadp2 or proploader) to scan for a port to use. But you may override this by selecting a specific serial port.
 
 If for some reason the port you wish to use is not listed (this may happen on Mac OS X, for example) then you can still override the port by configuring the command manually (using the Commands > Configure Commands... menu). In the "Run command" replace `%P` with `-p COM20` or `-p /dev/tty.usbmodem123` (or whatever the port you wish to use is).
+
+The "Baud" submenu selects the speed to use. This defaults to 115200 baud for P1 and 230400 for P2.
+
+The "Scan for ports" option checks for newly plugged in USB serial ports, and also looks for WX WiFi modules on the local network.
+
+The "Add IP Address..." menu entry allows you to  explicitly add the IP address of a WiFi module. This may be either a numeric address or a symbolic one. To delete an existing IP address, enter its name with a blank address field. To replace one, just re-enter it with the same name but a new address.
 
 ### Special
 
@@ -96,12 +120,12 @@ You can change the commands used for compiling and running programs. Since the c
 Config File
 -----------
 
-Settings for flexprop are saved in a file called `.flexprop.config`. This is searched for in the following places (in this order):
+Settings for flexprop are saved in a file called `.flexprop6.config`. This is searched for in the following places (in this order):
 
-(1) If a file called `.flexprop.config` already exists in the directory containing the `flexprop` executable, then that file is used. This provides an easy way to make a "portable" installation of FlexProp on a USB stick; just provide an empty `.flexprop.config` next to `flexprop.exe`.
+(1) If a file called `.flexprop6.config` already exists in the directory containing the `flexprop` executable, then that file is used. This provides an easy way to make a "portable" installation of FlexProp on a USB stick; just provide an empty `.flexprop6.config` next to `flexprop.exe`.
 
-(2) Otherwise, if an environment variable called HOME exists then the config file is `$HOME/.flexprop.config`.
+(2) Otherwise, if an environment variable called HOME exists then the config file is `$HOME/.flexprop6.config`.
 
-(3) If no HOME environment variable is found, the directory where `flexprop.exe` is installed is used as the home for `.flexprop.config`.
+(3) If no HOME environment variable is found, the directory where `flexprop.exe` is installed is used as the home for `.flexprop6.config`.
 
-If something gets really messed up, deleting the `.flexprop.config` file will restore flexprop to its default state.
+If something gets really messed up, deleting the `.flexprop6.config` file will restore flexprop to its default state.

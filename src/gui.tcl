@@ -1,5 +1,5 @@
 # Simple GUI for Spin
-# Copyright 2018-2021 Total Spectrum Software
+# Copyright 2018-2022 Total Spectrum Software
 # Distributed under the terms of the MIT license;
 # see License.txt for details.
 #
@@ -9,7 +9,7 @@
 set aboutMsg "
 GUI tool for FlexSpin
 Version $spin2gui_version
-Copyright 2018-2021 Total Spectrum Software Inc.
+Copyright 2018-2022 Total Spectrum Software Inc.
 ------
 There is no warranty and no guarantee that
 output will be correct.   
@@ -19,15 +19,15 @@ output will be correct.
 set bcversion 1
 set bcMsg "
 ROM bytecode is designed for Spin 1 only. \
-Some C / BASIC features are unimplemented and/or may not \
+Some features in other languages are unimplemented and/or may not \
 work properly.
 "
 
 # warnings about experimental features
 set nuversion 1
 set nuMsg "
-P2 bytecode is still under heavy development.
-Performance (both size/speed) is not in final state yet.
+P2 bytecode is still under heavy development. \
+Performance (both size/speed) is not in final state yet. \
 Some features may be unimplemented or not work properly.
 "
 
@@ -37,6 +37,7 @@ catch {tcl_endOfWord}
 # change it
 set tcl_wordchars {[[:alnum:]_]}
 set tcl_nonwordchars {[^[:alnum:]_]}
+
 #
 # global variables
 # ROOTDIR was set by our caller to be the directory from which all other
@@ -54,11 +55,14 @@ if { [tk windowingsystem] == "aqua" } {
 # have to explicitly specify it
 
 set EXE ""
-if { $tcl_platform(os) == "Darwin" && [file exists "$ROOTDIR/bin/flexspin.mac"] && [file exists "$ROOTDIR/bin/loadp2.mac"] } {
+if { $tcl_platform(os) == "Darwin" && [file exists "$ROOTDIR/bin/flexspin.mac"] && [file exists "$ROOTDIR/bin/proploader.mac"] } {
     set EXE ".mac"
 }
 
-if { [file exists "$ROOTDIR/.flexprop.config"] } {
+# base name for config file
+set DOT_CONFIG ".flexprop.config.0"
+
+if { [file exists "$ROOTDIR/$DOT_CONFIG"] } {
     # portable installation
     set CONFIGDIR $ROOTDIR
 } elseif { [info exists ::env(HOME) ] && [file isdirectory $::env(HOME)] } {    
@@ -69,17 +73,39 @@ if { [file exists "$ROOTDIR/.flexprop.config"] } {
 
 # prefix for starting a command in a window
 if { $tcl_platform(platform) == "windows" } {
-    set WINPREFIX "cmd.exe /c start \"Propeller Output %p\""
+    set WINPREFIX "cmd.exe /c start \"Propeller Output\""
 } elseif { [tk windowingsystem] == "aqua" } {
     set WINPREFIX $ROOTDIR/bin/mac_terminal.sh
 } elseif { [file executable /etc/alternatives/x-terminal-emulator] } {
-    set WINPREFIX "/etc/alternatives/x-terminal-emulator -T \"Propeller Output %p\" -e"
+    set WINPREFIX "/etc/alternatives/x-terminal-emulator -T \"Propeller Output\" -e"
 } else {
-    set WINPREFIX "xterm -fs 14 -T \"Propeller Output %p\" -e"
+    set WINPREFIX "xterm -fs 14 -T \"Propeller Output\" -e"
+}
+
+#
+# Create some useful fonts
+#
+font create InternalTermFont -family Courier -size 10
+font create BottomCmdFont -family Courier -size 10
+
+proc resetTerminalFont {w} {
+    global config
+    set fnt [font actual $w]
+    set config(term_font) $fnt
+    set cmd [concat [list font configure InternalTermFont] $fnt]
+    eval $cmd
+}
+
+proc resetBottomFont {w} {
+    global config
+    set fnt [font actual $w]
+    set config(botfont) $fnt
+    set cmd [concat [list font configure BottomCmdFont] $fnt]
+    eval $cmd
 }
 
 # config file name
-set CONFIG_FILE "$CONFIGDIR/.flexprop.config"
+set CONFIG_FILE "$CONFIGDIR/$DOT_CONFIG"
 
 # default configuration variables
 # the config() array is written to the config file and read
@@ -91,21 +117,31 @@ set config(spinext) ".spin"
 set config(lastdir) [pwd]
 set config(font) "TkFixedFont"
 set config(botfont) "courier 10"
+set config(term_font) "TkFixedFont"
+set config(term_w) 79
+set config(term_h) 24
 set config(sash) ""
-set config(tabwidth) 4
+set config(tabwidth) 8
 set config(autoreload) 0
+set config(internal_term) "ansi"
+set config(reset) "dtr"
 set COMPORT " "
 set OPT "-O1"
 set COMPRESS "-z0"
 set WARNFLAGS "-Wnone"
 set FIXEDREAL "--floatreal"
 set DEBUG_OPT "-gnone"
+set CHARSET "--charset=utf8"
 set PROP_VERSION ""
 set OPENFILES ""
 set config(showlinenumbers) 1
 set config(savesession) 1
 set config(syntaxhighlight) 1
 set config(autoindent) 1
+
+# saved IP configuration
+#set savedips [ list [list "localhost" "127.0.0.1" ] ]
+set config(savedips) [ list ]
 
 # we provide some warnings to the user about experimental features
 # start the version off at 0, and provide a popup when we find the
@@ -136,20 +172,17 @@ proc getWindowFile { w } {
 # provide some default settings
 proc setShadowP1Defaults {} {
     global shadow
-    global WINPREFIX
     global ROOTDIR
     global EXE
     
     set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" --tabs=%t -D_BAUD=%r -l %O %I \"%S\""
-    set shadow(runcmd) "$WINPREFIX \"%D/bin/proploader$EXE\" -Dbaudrate=%r %P \"%B\" -r -t -k"
-    set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
-    set shadow(flashcmd) "$WINPREFIX \"%D/bin/proploader$EXE\" -Dbaudrate=%r %P \"%B\" -e -k"
+    set shadow(runcmd) "\"%D/bin/proploader$EXE\" -k -D baud-rate=%r %P \"%B\" -r \"-9%b\" -q"
+    set shadow(flashcmd) "\"%D/bin/proploader$EXE\" -k -D baud-rate=%r %P \"%B\" -e"
     set shadow(baud) 115200
 }
 # provide some default settings
 proc setShadowP1BytecodeDefaults {} {
     global shadow
-    global WINPREFIX
     global ROOTDIR
     global EXE
     global config
@@ -157,9 +190,8 @@ proc setShadowP1BytecodeDefaults {} {
     global bcMsg
     
     set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" --interp=rom --tabs=%t -D_BAUD=%r -l %O %I \"%S\""
-    set shadow(runcmd) "$WINPREFIX \"%D/bin/proploader$EXE\" -Dbaudrate=%r %P \"%B\" -r -t -k"
-    set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
-    set shadow(flashcmd) "$WINPREFIX \"%D/bin/proploader$EXE\" -Dbaudrate=%r %P \"%B\" -e -k"
+    set shadow(runcmd) "\"%D/bin/proploader$EXE\" -k -D baud-rate=%r %P \"%B\" -r -t -q"
+    set shadow(flashcmd) "\"%D/bin/proploader$EXE\" -k -D baud-rate=%r %P \"%B\" -e"
     set shadow(baud) 115200
     if { $config(note_bcversion) != $bcversion } {
 	set config(note_bcversion) $bcversion
@@ -168,41 +200,35 @@ proc setShadowP1BytecodeDefaults {} {
 }
 proc setShadowP2aDefaults {} {
     global shadow
-    global WINPREFIX
     global ROOTDIR
     global EXE
     
     set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" -2a -l --tabs=%t -D_BAUD=%r %O %I \"%S\""
-    set shadow(runcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"%B\" \"-9%b\" -k"
-    set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
-    set shadow(flashcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"@0=%F,@8000+%B\" -t -k"
+    set shadow(runcmd) "\"%D/bin/proploader$EXE\" -k -2 %P -D baud-rate=%r \"%B\" \"-9%b\" -r -t -q"
+    set shadow(flashcmd) "\"%D/bin/proploader$EXE\" -k -2 -D baud-rate=%r %P \"%B\" -e -t"
     set shadow(baud) 230400
 }
 proc setShadowP2bDefaults {} {
     global shadow
-    global WINPREFIX
     global ROOTDIR
     global EXE
     
     set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" -2 -l --tabs=%t -D_BAUD=%r %O %I \"%S\""
-    set shadow(runcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"%B\" \"-9%b\" -k"
-    set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
-    set shadow(flashcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"@0=%F,@8000+%B\" -t -k"
+    set shadow(runcmd) "\"%D/bin/proploader$EXE\" -k -2 %P -D baud-rate=%r -D loader-baud-rate=%r \"%B\" \"-9%b\" -r -t -q"
+    set shadow(flashcmd) "\"%D/bin/proploader$EXE\" -k -2 -D baud-rate=%r %P \"%B\" -e -t"
     set shadow(baud) 230400
 }
 proc setShadowP2NuDefaults {} {
     global config
     global shadow
-    global WINPREFIX
     global ROOTDIR
     global EXE
     global nuversion
     global nuMsg
 
     set shadow(compilecmd) "\"%D/bin/flexspin$EXE\" -2nu -l --tabs=%t -D_BAUD=%r %O %I \"%S\""
-    set shadow(runcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"%B\" \"-9%b\" -k"
-    set shadow(flashprogram) "$ROOTDIR/board/P2ES_flashloader.bin"
-    set shadow(flashcmd) "$WINPREFIX \"%D/bin/loadp2$EXE\" %P -b%r \"@0=%F,@8000+%B\" -t -k"
+    set shadow(runcmd) "\"%D/bin/proploader$EXE\" -k -2 %P -D baud-rate=%r -D loader-baud-rate=%r \"%B\" \"-9%b\" -r -t -q"
+    set shadow(flashcmd) "\"%D/bin/proploader$EXE\" -k -2 -D baud-rate=%r %P \"%B\" -e -t"
     set shadow(baud) 230400
 
     if { $config(note_nuversion) != $nuversion } {
@@ -216,7 +242,6 @@ proc copyShadowToConfig {} {
     set config(compilecmd) $shadow(compilecmd)
     set config(runcmd) $shadow(runcmd)
     set config(flashcmd) $shadow(flashcmd)
-    set config(flashprogram) $shadow(flashprogram)
     set config(baud) $shadow(baud)
     checkPropVersion
 }
@@ -300,6 +325,7 @@ proc config_open {} {
     global FIXEDREAL
     global DEBUG_OPT
     global COMPORT
+    global CHARSET
     global OPENFILES
     
     if {[file exists $CONFIG_FILE]} {
@@ -331,6 +357,10 @@ proc config_open {} {
 	    warnflags {
 		# set warning flags
 		set WARNFLAGS [lindex $data 1]
+	    }
+	    runtime_charset {
+		# set warning flags
+		set CHARSET [lindex $data 1]
 	    }
 	    fixedreal {
 		# set warning flags
@@ -364,7 +394,17 @@ proc config_open {} {
     if { "$config(font)" eq "" } {
 	set config(font) "TkFixedFont"
     }
+    if { "$config(botfont)" eq "" } {
+	set config(botfont) "TkFixedFont"
+    }
+    if { "$config(term_font)" eq "" } {
+	set config(term_font) "TkFixedFont"
+    }
+    if { "$config(internal_term)" eq "1" } {
+	set config(internal_term) "pst"
+    }
 
+    resetTerminalFont $config(term_font)
     return 1
 }
 
@@ -378,6 +418,7 @@ proc config_save {} {
     global DEBUG_OPT
     global COMPORT
     global OPENFILES
+    global CHARSET
     
     updateLibraryList
     updateOpenFiles
@@ -392,6 +433,7 @@ proc config_save {} {
     puts $fp "warnflags\t\{$WARNFLAGS\}"
     puts $fp "fixedreal\t\{$FIXEDREAL\}"
     puts $fp "debugopt\t\{$DEBUG_OPT\}"
+    puts $fp "runtime_charset\t\{$CHARSET\}"
     foreach i [array names config] {
 	if {$i != ""} {
 	    puts $fp "$i\t\{$config($i)\}"
@@ -627,6 +669,7 @@ proc updateLibraryList {} {
     }
 }
 
+# "tabs" here are tabs in the main editor window
 set TABCOUNTER 0
 proc newTabName {} {
     global TABCOUNTER
@@ -998,6 +1041,17 @@ proc doGuiHelp { } {
     loadHelpFile $file $title
 }
 
+proc doHelp { name } {
+    global ROOTDIR
+    set htmlfile "$ROOTDIR/doc/$name.html"
+    set mdfile "$ROOTDIR/doc/$name.md"
+    if { [file exists $htmlfile] } {
+	launchBrowser "file://$htmlfile"
+    } else {
+	loadHelpFile $mdfile $name
+    }
+}
+
 proc doSpecial {name extraargs} {
     global ROOTDIR
     global BINFILE
@@ -1325,6 +1379,9 @@ proc rescanPorts { } {
     global comport_last
     global PROP_VERSION
     global EXE
+    global config
+    global ROOTDIR
+    set iplist $config(savedips)
     
     # search for serial ports using serial::listports (src/checkserial.tcl)
     .mbar.comport delete $comport_last end
@@ -1337,8 +1394,8 @@ proc rescanPorts { } {
     }
 
     # look for WIFI devices
-    if { $PROP_VERSION eq "P1" } {
-	set wifis [exec -ignorestderr bin/proploader$EXE -W]
+    #if { $PROP_VERSION eq "P1" } {
+	set wifis [exec -ignorestderr $ROOTDIR/bin/proploader$EXE -W]
 	set wifis [split $wifis "\n"]
 	foreach v $wifis {
 	    set comname "$v"
@@ -1346,6 +1403,7 @@ proc rescanPorts { } {
 	    set ipstart [string first "IP:" "$v"]
 	    #puts "for \[$v\] ipstart=$ipstart"
 	    if { $ipstart != -1 } {
+		set comname [string range $v 0 [expr {$ipstart - 1}]]
 		set ipstart [expr $ipstart + 4]
 		set ipstring [string range $v $ipstart end]
 		set ipend [string first "," "$ipstring"]
@@ -1353,14 +1411,26 @@ proc rescanPorts { } {
 		#puts "  for <$comname> ipend=<$ipend>"
 		if { $ipend >= 0 } {
 		    set ipstring [string range $ipstring 0 $ipend]
-		    set portval "-i $ipstring"
+		    set portval "$ipstring"
 		    #puts "  -> portval=$portval"
 		}
 	    }
 	    if { $portval ne "" } {
-		.mbar.comport add radiobutton -label $comname -variable COMPORT -value "$portval"
+		lappend iplist [list $comname $portval]
 	    }
 	}
+    #}
+
+    # Now add in any explicitly configured IP addresses
+    if { [llength $iplist] != 0 } {
+	    .mbar.comport add separator
+    }
+    foreach v $iplist {
+	set name [lindex $v 0]
+	set portval [lindex $v 1]
+	set comname "$name ($portval)"
+	set portval "-i $portval"
+	.mbar.comport add radiobutton -label $comname -variable COMPORT -value "$portval"
     }
 }
 
@@ -1415,24 +1485,42 @@ menu .mbar.help -tearoff 0
 .mbar.edit add command -label "Replace..." -accelerator "$CTRL_PREFIX-K" -command {searchrep [focus] 1}
 
 .mbar add cascade -menu .mbar.options -label Options
-.mbar.options add radiobutton -label "No Optimization" -variable OPT -value "-O0"
-.mbar.options add radiobutton -label "Default Optimization" -variable OPT -value "-O1"
-.mbar.options add radiobutton -label "Full Optimization" -variable OPT -value "-O2"
+menu .mbar.options.opt
+.mbar.options add cascade -menu .mbar.options.opt -label "Optimization"
+.mbar.options.opt add radiobutton -label "No Optimization" -variable OPT -value "-O0"
+.mbar.options.opt add radiobutton -label "Default Optimization" -variable OPT -value "-O1"
+.mbar.options.opt add radiobutton -label "Full Optimization" -variable OPT -value "-O2"
+
+menu .mbar.options.warn
+.mbar.options add cascade -menu .mbar.options.warn -label "Warnings"
+.mbar.options.warn add radiobutton -label "No extra warnings" -variable WARNFLAGS -value "-Wnone"
+.mbar.options.warn add radiobutton -label "Enable compatibility warnings" -variable WARNFLAGS -value "-Wall"
+
+menu .mbar.options.float
+.mbar.options add cascade -menu .mbar.options.float -label "Floating Point"
+.mbar.options.float add radiobutton -label "Use IEEE floating point" -variable FIXEDREAL -value "--floatreal"
+.mbar.options.float add radiobutton -label "Use 16.16 fixed point in place of floats" -variable FIXEDREAL -value "--fixedreal"
+
+menu .mbar.options.charset
+.mbar.options add cascade -menu .mbar.options.charset -label "Runtime character set"
+.mbar.options.charset add radiobutton -label "UTF-8 (Unicode)" -variable CHARSET -value "--charset=utf8"
+.mbar.options.charset add radiobutton -label "Latin-1" -variable CHARSET -value "--charset=latin1"
+.mbar.options.charset add radiobutton -label "Parallax OEM" -variable CHARSET -value "--charset=parallax"
+
 .mbar.options add separator
-.mbar.options add radiobutton -label "No extra warnings" -variable WARNFLAGS -value "-Wnone"
-.mbar.options add radiobutton -label "Enable compatibility warnings" -variable WARNFLAGS -value "-Wall"
+.mbar.options add command -label "Editor Options..." -command { doEditorOptions }
 .mbar.options add separator
-.mbar.options add radiobutton -label "Use IEEE floating point" -variable FIXEDREAL -value "--floatreal"
-.mbar.options add radiobutton -label "Use 16.16 fixed point in place of floats" -variable FIXEDREAL -value "--fixedreal"
-.mbar.options add separator
+
 .mbar.options add radiobutton -label "Debug disabled" -variable DEBUG_OPT -value "-gnone"
 .mbar.options add radiobutton -label "Print debug" -variable DEBUG_OPT -value "-g"
-.mbar.options add radiobutton -label "BRK based debug" -variable DEBUG_OPT -value "-gbrk"
+.mbar.options add radiobutton -label "BRK debug (P2 only)" -variable DEBUG_OPT -value "-gbrk"
 #.mbar.options add separator
 #.mbar.options add radiobutton -label "No Compression" -variable COMPRESS -value "-z0"
 #.mbar.options add radiobutton -label "Compress Code" -variable COMPRESS -value "-z1"
 .mbar.options add separator
-.mbar.options add command -label "Editor Options..." -command { doEditorOptions }
+.mbar.options add radiobutton -label "Use internal PST terminal" -variable config(internal_term) -value "pst"
+.mbar.options add radiobutton -label "Use internal ANSI terminal" -variable config(internal_term) -value "ansi"
+.mbar.options add radiobutton -label "Use external terminal" -variable config(internal_term) -value "0"
 
 
 .mbar add cascade -menu .mbar.run -label Commands
@@ -1444,15 +1532,21 @@ menu .mbar.help -tearoff 0
 .mbar.run add command -label "Flash binary file..." -command { doLoadFlash }
 .mbar.run add separator
 .mbar.run add command -label "Configure Commands..." -command { doRunOptions }
-.mbar.run add command -label "Choose P2 flash program..." -command { pickFlashProgram }
+#.mbar.run add command -label "Choose P2 flash program..." -command { pickFlashProgram }
 
 .mbar add cascade -menu .mbar.comport -label Ports
-.mbar.comport add radiobutton -label "115200 baud" -variable config(baud) -value 115200
-.mbar.comport add radiobutton -label "230400 baud" -variable config(baud) -value 230400
-.mbar.comport add radiobutton -label "921600 baud" -variable config(baud) -value 921600
-.mbar.comport add radiobutton -label "2000000 baud" -variable config(baud) -value 2000000
-.mbar.comport add separator
+menu .mbar.comport.baud
+.mbar.comport add cascade -menu .mbar.comport.baud -label "Baud"
+.mbar.comport.baud add radiobutton -label "115200 baud" -variable config(baud) -value 115200
+.mbar.comport.baud add radiobutton -label "230400 baud" -variable config(baud) -value 230400
+.mbar.comport.baud add radiobutton -label "921600 baud" -variable config(baud) -value 921600
+.mbar.comport.baud add radiobutton -label "2000000 baud" -variable config(baud) -value 2000000
+#.mbar.comport add separator
+#.mbar.comport add radiobutton -label "Use DTR for reset" -variable config(reset) -value "dtr"
+#.mbar.comport add radiobutton -label "Use RTS for reset" -variable config(reset) -value "rts"
+#.mbar.comport add separator
 .mbar.comport add command -label "Scan for ports" -command rescanPorts
+.mbar.comport add command -label "Add IP address..." -command { ::IpEntry::addIpAddress rescanPorts }
 .mbar.comport add separator
 .mbar.comport add radiobutton -label "Find port automatically" -variable COMPORT -value " "
 set comport_last [.mbar.comport index end]
@@ -1469,14 +1563,14 @@ set comport_last [.mbar.comport index end]
 .mbar.special add command -label "Load current buffer into proplisp on P2" -command { doSpecial "samples/proplisp/lisp.binary" [scriptSendCurFile] }
 .mbar.special add separator
 .mbar.special add command -label "Enter P2 ROM monitor" -command { doSpecial "-xDEBUG" "" }
-.mbar.special add command -label "Terminal only" -command { doSpecial "-n" "-t" }
+.mbar.special add command -label "Terminal only" -command { doSpecial "-xTERM" "-t" }
 
 .mbar add cascade -menu .mbar.help -label Help
 .mbar.help add command -label "GUI" -command { doGuiHelp }
-.mbar.help add command -label "General compiler documentation" -command { launchBrowser "file://$ROOTDIR/doc/general.html" }
-.mbar.help add command -label "BASIC Language" -command { launchBrowser "file://$ROOTDIR/doc/basic.html" }
-.mbar.help add command -label "C Language" -command { launchBrowser "file://$ROOTDIR/doc/c.html" }
-.mbar.help add command -label "Spin Language" -command { launchBrowser "file://$ROOTDIR/doc/spin.html" }
+.mbar.help add command -label "General compiler documentation" -command { doHelp "general" }
+.mbar.help add command -label "BASIC Language" -command { doHelp "basic" }
+.mbar.help add command -label "C Language" -command { doHelp "c" }
+.mbar.help add command -label "Spin Language" -command { doHelp "spin" }
 .mbar.help add separator
 .mbar.help add command -label "Parallax P1 documentation" -command { launchBrowser "https://www.parallax.com/download/propeller-1-documentation/" }
 .mbar.help add command -label "Parallax P2 documentation" -command { launchBrowser "https://www.parallax.com/propeller-2/documentation" }
@@ -1506,7 +1600,7 @@ grid .toolbar.compile .toolbar.runBinary .toolbar.compileRun .toolbar.configmsg 
 
 scrollbar .p.bot.v -orient vertical -command {.p.bot.txt yview}
 scrollbar .p.bot.h -orient horizontal -command {.p.bot.txt xview}
-text .p.bot.txt -wrap none -xscroll {.p.bot.h set} -yscroll {.p.bot.v set} -height 10 -font $config(botfont)
+text .p.bot.txt -wrap none -xscroll {.p.bot.h set} -yscroll {.p.bot.v set} -height 10 -font BottomCmdFont
 label .p.bot.label -background DarkGrey -foreground white -text "Compiler Output" -font TkSmallCaptionFont -relief flat -pady 0 -borderwidth 0
 
 grid .p.bot.label      -sticky nsew
@@ -1593,7 +1687,7 @@ proc doSelectFont {} {
 
 proc doSelectBottomFont {} {
     global config
-    set curfont $config(font)
+    set curfont $config(botfont)
     set version [info tclversion]
     
     if { $version > 8.5 } {
@@ -1602,9 +1696,24 @@ proc doSelectBottomFont {} {
     } else {
 	set fnt [choosefont $curfont "Command output font"]
 	if { "$fnt" ne "" } {
-	    set config(botfont) $fnt
-	    .p.bot.txt configure -font $fnt
-	    .editopts.bot.lb configure -font $fnt
+	    resetBottomFont $fnt
+	}
+    }
+}
+
+proc doSelectTerminalFont {} {
+    global config
+    set curfont $config(term_font)
+    set version [info tclversion]
+    
+    if { $version > 8.5 } {
+	tk fontchooser configure -parent . -font "$config(term_font)" -command resetTerminalFont
+	tk fontchooser show
+    } else {
+	set fnt [choosefont $curfont "Command output font"]
+	if { "$fnt" ne "" } {
+	    set config(term_font) $fnt
+#	    .editopts.term.lb configure -font $fnt
 	}
     }
 }
@@ -1615,14 +1724,6 @@ proc resetFont {w} {
     set config(font) $fnt
     setnbfonts $fnt
     .editopts.font.lb configure -font $fnt
-}
-
-proc resetBottomFont {w} {
-    global config
-    set fnt [font actual $w]
-    set config(botfont) $fnt
-    .p.bot.txt configure -font $fnt
-    .editopts.bot.lb configure -font $fnt
 }
 
 proc doShowLinenumbers {} {
@@ -1669,7 +1770,8 @@ proc doEditorOptions {} {
     toplevel .editopts
     frame .editopts.top
     ttk::labelframe .editopts.font -text "Source code"
-    ttk::labelframe .editopts.bot -text "\n Compiler output \n"
+    ttk::labelframe .editopts.bot -text "\n Compiler output"
+    ttk::labelframe .editopts.term -text "\n Terminal Options"
     frame .editopts.end
 
     label .editopts.top.l -text "\n  Editor Options  \n"
@@ -1688,8 +1790,11 @@ proc doEditorOptions {} {
     checkbutton .editopts.font.savewindows -text "Save session on exit" -variable config(savesession)
     ttk::button .editopts.end.ok -text " OK " -command doneAppearance
 
-    label .editopts.bot.lb -text "Compiler output font " -font $config(botfont)
+    label .editopts.bot.lb -text "Compiler output font " -font BottomCmdFont
     ttk::button .editopts.bot.change -text " Change... " -command doSelectBottomFont
+
+    label .editopts.term.lb -text "Terminal font " -font InternalTermFont
+    ttk::button .editopts.term.change -text " Change... " -command doSelectTerminalFont
 
     grid columnconfigure .editopts 0 -weight 1
     grid rowconfigure .editopts 0 -weight 1
@@ -1697,6 +1802,7 @@ proc doEditorOptions {} {
     grid .editopts.top -sticky nsew
     grid .editopts.font -sticky nsew
     grid .editopts.bot -sticky nsew
+    grid .editopts.term -sticky nsew
     grid .editopts.end -sticky nsew
 
     grid .editopts.top.l -sticky nsew 
@@ -1709,6 +1815,7 @@ proc doEditorOptions {} {
     grid .editopts.font.autoreload
     grid .editopts.font.savewindows
     grid .editopts.bot.lb .editopts.bot.change
+    grid .editopts.term.lb .editopts.term.change
     
     grid .editopts.end.ok -sticky nsew
 
@@ -1734,15 +1841,21 @@ proc mapPercent {str} {
     global ROOTDIR
     global OPT
     global WARNFLAGS
+    global CHARSET
     global FIXEDREAL
     global DEBUG_OPT
     global COMPRESS
     global COMPORT
+    global WINPREFIX
     global config
 
     set ourwarn $WARNFLAGS
     set ourdebug $DEBUG_OPT
     set ourfixed $FIXEDREAL
+    set ourcharset $CHARSET
+    #set runprefix "$WINPREFIX "
+    set runprefix ""
+    
     if { "$ourwarn" eq "-Wnone" } {
 	set ourwarn ""
     }
@@ -1752,8 +1865,9 @@ proc mapPercent {str} {
     if { "$ourfixed" eq "--floatreal" } {
 	set ourfixed ""
     }
+    
 #    set fulloptions "$OPT $ourwarn $COMPRESS"
-    set fulloptions "$OPT $ourwarn $ourdebug $ourfixed"
+    set fulloptions "$OPT $ourwarn $ourdebug $ourfixed $ourcharset"
     if { $COMPORT ne " " } {
 	set fullcomport "$COMPORT"
     } else {
@@ -1765,7 +1879,7 @@ proc mapPercent {str} {
     } else {
 	set srcfile "undefined"
     }
-    set percentmap [ list "%%" "%" "%D" $ROOTDIR "%I" [get_includepath] "%L" $config(library) "%S" $srcfile "%B" $BINFILE "%b" $bindir "%O" $fulloptions "%P" $fullcomport "%p" $COMPORT "%F" $config(flashprogram) "%r" $config(baud) "%t" $config(tabwidth)]
+    set percentmap [ list "%%" "%" "%#" $runprefix "%D" $ROOTDIR "%I" [get_includepath] "%L" $config(library) "%S" $srcfile "%B" $BINFILE "%b" $bindir "%O" $fulloptions "%P" $fullcomport "%r" $config(baud) "%t" $config(tabwidth)]
     set result [string map $percentmap $str]
     return $result
 }
@@ -1894,16 +2008,33 @@ proc doJustRunCmd {cmdstr extraargs} {
 proc doJustRun {extraargs} {
     global config
     global BINFILE
+    global WINPREFIX
     
     set cmdstr [mapPercent $config(runcmd)]
-    doJustRunCmd $cmdstr $extraargs
+    if { $extraargs ne "" } {
+	set cmdstr [concat "$cmdstr" " " "$extraargs"]
+    }
+    if { $config(internal_term) ne "0" } {
+	#puts "Internal Running: $runcmd"
+	::TkTerm::RunInWindow $cmdstr
+    } else {
+	set runcmd [list exec -ignorestderr]
+	set cmdstr [concat $WINPREFIX $cmdstr]
+	set runcmd [concat $runcmd $cmdstr]
+	lappend runcmd 2>@1
+	#puts "External Running: $runcmd"
+	if {[catch $runcmd errout options]} {
+	    set status 1
+	}
+    }
 }
-set flashMsg "
-Note that many boards require jumpers or switches
-to be set before programming flash and/or
-before booting from it.
 
-Please ensure your board is configured for flash
+set flashMsg "
+Note that many boards require jumpers or switches \
+to be set before programming flash and/or \
+before booting from it. \n\
+\n\
+Please ensure your board is configured for flash \
 programming.
 "
 
@@ -1911,11 +2042,24 @@ proc doJustFlash {} {
     global config
     global BINFILE
     global flashMsg
+    global WINPREFIX
     
     set answer [tk_messageBox -icon info -type okcancel -message "Flash Binary" -detail $flashMsg]
-    if { $answer eq "ok" } {
-	set cmdstr [mapPercent $config(flashcmd)]
-	doJustRunCmd $cmdstr ""
+    
+    if { $answer ne "ok" } {
+	return
+    }
+    set cmdstr [mapPercent $config(flashcmd)]
+    if { $config(internal_term) ne "0" } {
+	::TkTerm::RunInWindow $cmdstr
+    } else {
+	set runcmd [list exec -ignorestderr]
+	set cmdstr [concat $WINPREFIX $cmdstr]
+	set runcmd [concat $runcmd $cmdstr]
+	lappend runcmd 2>@1
+	if {[catch $runcmd errout options]} {
+	    set status 1
+	}
     }
 }
 
@@ -1972,7 +2116,6 @@ set cmddialoghelptext {
     %F = Replace with currently selected flash program (sd/flash)
     %I = Replace with all library/include directories
     %O = Replace with optimization level
-    %p = Replace with port to use
     %P = Replace with port to use prefixed by -p
     %r = Replace with current baud rate
     %S = Replace with current source file name
@@ -2207,4 +2350,3 @@ if { $::argc > 0 } {
 }
 
 rescanPorts
-

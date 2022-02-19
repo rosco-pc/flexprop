@@ -1,6 +1,38 @@
-Version 6.0.0
+Version 5.9.9
+
+- Updated PropLoader to try to fix some of the loading problems and to support 2000000 baud
+- Moved baud rate changes to a sub-menu
+
+Version 5.9.7
+
+Major updates in this version, including:
+
+- Added menu options for configuring IP address
+- Made proploader (with Wifi support) the default loader for P2
+- Added options to use a built in terminal emulator, instead of
+  relying on an external one
+- Added support for a few graphical DEBUG commands (TEXT and PLOT related)
+- Made the default tab width 8 instead of 4
+- Renamed the config file to `.flexprop6.config`; this makes sure
+  everyone starts with a fresh config, and allows older flexprop to coexist
+
+Version 5.9.6
+- Made the Help menu items use the .md files if HTML files are not available
+- Updated P1 proploader program to support the Plan 9 file system
+
+Version 5.9.5
+- Fixed opening HTML files in some browsers
+- Some minor packaging fixes
+
+Version 5.9.4
+- Added character set options to menus
+- Fixed serial port detection on Windows
+- Re-arranged Option menu to use submenus
+
+Version 5.9.3
 - Added bytecode options to menus
 - Built flexprop binary for MacOS
+- Used new version of loadp2 with different timeout routines
 
 Version 5.4.1
 - Updated loadp2 to scan more serial ports on Windows
