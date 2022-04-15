@@ -55,7 +55,7 @@ WIN_BINARIES=$(EXEBINFILES) bin/proploader.exe bin/proploader.mac
 #WIN_BINARIES=$(EXEBINFILES) bin/proploader.exe
 NATIVE_BINARIES=bin/flexspin bin/flexcc bin/loadp2 bin/proploader
 
-install: flexprop_base flexprop.bin $(NATIVE_BINARIES)
+install: check_dir flexprop_base flexprop.bin $(NATIVE_BINARIES)
 	mkdir -p $(INSTALL)
 	mkdir -p flexprop/bin
 	cp -r $(NATIVE_BINARIES) flexprop/bin
@@ -63,6 +63,9 @@ install: flexprop_base flexprop.bin $(NATIVE_BINARIES)
 	cp -r flexprop/* $(INSTALL)
 	cp -rp flexprop.bin $(INSTALL)/flexprop
 	cp -rp tcl_library $(INSTALL)/
+
+check_dir:
+	if test -f $(INSTALL)/Makefile; then echo "ERROR: Install directory contains a Makefile (possibly installing to original source)"; exit 1; fi
 
 # where the Tcl and Tk source code are checked out (side by side)
 TCLROOT ?= /home/ersmith/src/Tcl
@@ -258,12 +261,12 @@ spin2cpp/build-win32/flexcc.exe:
 
 ifneq ($(OS),msys)
 proploader-msys-build/bin/proploader.exe:
-	make -C PropLoader CROSS=win32
+	make -C PropLoader CROSS=win32 SPINCMP="`pwd`/bin/flexspin"
 endif
 
 ifneq ($(OS),macosx)
 proploader-macosx-build/bin/proploader:
-	make -C PropLoader CROSS=macosx
+	make -C PropLoader CROSS=macosx SPINCMP="`pwd`/bin/flexspin"
 endif
 
 ifneq ($(OS),msys)
