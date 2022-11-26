@@ -1,3 +1,21 @@
+Version 5.9.20
+
+- Added link to Ada's hyperlinked P2 documentation
+
+Version 5.9.18
+
+- Fixed some color issues in dark mode.
+
+Version 5.9.15
+
+- Modified file change code to check for external files change whenever we gain/lose focus
+- Modified right click popup menu to only happen inside the editor pane
+- Removed blinking quoted text highlighting in the editor
+
+Version 5.9.12
+
+- Added a few more examples
+
 Version 5.9.10
 
 - Added right-click popup cut/copy/paste menu to terminal windows

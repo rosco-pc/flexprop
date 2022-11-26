@@ -149,7 +149,7 @@ set config(savedips) [ list ]
 # start the version off at 0, and provide a popup when we find the
 # current note version is > the version
 
-set config(note_nuversion) 0
+set config(note_nuversion) 1
 set config(note_bcversion) 0
 
 #
@@ -536,6 +536,7 @@ proc saveFileFromWindow { fname win } {
     if { [file exists $fname] } {
         set disktime [file mtime $fname]
         if { $disktime > $filetimes($fname) } {
+	    set filetimes($fname) $disktime
 	    set answer $config(autoreload)
 	    if { ! $answer } {
 		set answer [tk_messageBox -icon question -type yesno -message "File $fname has changed on disk; overwrite it?" -default no]
@@ -727,8 +728,8 @@ proc setupFramedText {w} {
     set replacecmd "searchrep $w.txt 1"
 
     ctext $w.txt -wrap none -yscrollcommand $yscmd -xscroll $xscmd -tabstyle wordprocessor -linemap $config(showlinenumbers) -undo 1
-    scrollbar $w.v -orient vertical -command $yvcmd
-    scrollbar $w.h -orient horizontal -command $xvcmd
+    ttk::scrollbar $w.v -orient vertical -command $yvcmd
+    ttk::scrollbar $w.h -orient horizontal -command $xvcmd
 
     grid $w.txt $w.v -sticky nsew
     grid $w.h -sticky nsew
@@ -753,6 +754,15 @@ proc setupFramedText {w} {
     # up correctly
     if { [tk windowingsystem] == "x11" } {
 	$w.txt configure -selectbackground blue -selectforeground white
+    }
+
+    # bind popup menu to right mouse button on Linux and Windows
+
+    if {[tk windowingsystem]=="aqua"} {
+	bind $w.txt <2> "tk_popup .popup1 %X %Y"
+	bind $w.txt <Control-1> "tk_popup .popup1 %X %Y"
+    } else {
+	bind $w.txt <3> "tk_popup .popup1 %X %Y"
     }
 }
 
@@ -837,6 +847,7 @@ proc loadFileToTab {w filename title} {
     set filenames($w) $filename
     set filetimes($filename) [file mtime $filename]
 }
+    
 
 proc findFileOnPath { filename startdir } {
     global config
@@ -930,6 +941,60 @@ proc pickFlashProgram {} {
 	return
     }
     set config(flashprogram) $filename
+}
+
+# check to see if a file has changed externally; if so, re-load it
+proc checkFilesForChanges {} {
+    global filenames
+    global filetimes
+    global config
+
+    set t [.p.nb tabs]
+    set i 0
+    set w [lindex $t $i]
+    while { $w ne "" } {
+	set s $filenames($w)
+	set needRead "no"
+	if { $s ne "" } {
+	    if { [file exists $s] } {
+		set disktime [file mtime $s]
+	        if {$disktime > $filetimes($s)} {
+		    set needRead "yes"
+		}
+	    }
+	    if { $needRead eq "yes" } {
+		set answer $config(autoreload)
+		#puts "disktime-$disktime filetime=$filetimes($s)"
+		set filetimes($s) $disktime
+		if { ! $answer  } {
+		    set answer [tk_messageBox -icon question -type yesno -message "File $s has changed on disk. Reload it?" -default yes]
+		}
+		if { $answer } {
+		    loadFileToWindow $s $w.txt
+		}
+	    }
+	}
+	incr i
+	set w [lindex $t $i]
+    }
+}
+
+#
+# code for handling focus in/out events
+# allows us to re-check for modified files
+# Only re-check when the whole application loses/gains focus
+#
+proc checkFocusOut {w} {
+    #puts "FocusOut: $w"
+}
+proc checkFocusIn {w} {
+    global config
+    #puts "FocusIn: $w"
+    if { $w eq "." } {
+	if { $config(autoreload) } {
+	    checkFilesForChanges
+	}
+    }
 }
 
 # maybe save the current file; used for compilation
@@ -1511,6 +1576,7 @@ menu .mbar.options.opt
 .mbar.options add cascade -menu .mbar.options.opt -label "Optimization"
 .mbar.options.opt add radiobutton -label "No Optimization" -variable OPT -value "-O0"
 .mbar.options.opt add radiobutton -label "Default Optimization" -variable OPT -value "-O1"
+.mbar.options.opt add radiobutton -label "Size Optimization" -variable OPT -value "-Os"
 .mbar.options.opt add radiobutton -label "Full Optimization" -variable OPT -value "-O2"
 
 menu .mbar.options.warn
@@ -1528,6 +1594,7 @@ menu .mbar.options.charset
 .mbar.options.charset add radiobutton -label "UTF-8 (Unicode)" -variable CHARSET -value "--charset=utf8"
 .mbar.options.charset add radiobutton -label "Latin-1" -variable CHARSET -value "--charset=latin1"
 .mbar.options.charset add radiobutton -label "Parallax OEM" -variable CHARSET -value "--charset=parallax"
+.mbar.options.charset add radiobutton -label "Shift-JIS" -variable CHARSET -value "--charset=shiftjis"
 
 .mbar.options add separator
 .mbar.options add command -label "Editor Options..." -command { doEditorOptions }
@@ -1596,6 +1663,7 @@ set comport_last [.mbar.comport index end]
 .mbar.help add separator
 .mbar.help add command -label "Parallax P1 documentation" -command { launchBrowser "https://www.parallax.com/download/propeller-1-documentation/" }
 .mbar.help add command -label "Parallax P2 documentation" -command { launchBrowser "https://www.parallax.com/propeller-2/documentation" }
+.mbar.help add command -label "IRQsoft P2 documentation" -command { launchBrowser "https://p2docs.github.io" }
 .mbar.help add separator
 .mbar.help add command -label "About..." -command { doAbout }
 
@@ -1620,8 +1688,8 @@ checkPropVersion
 
 grid .toolbar.compile .toolbar.runBinary .toolbar.compileRun .toolbar.configmsg -sticky nsew
 
-scrollbar .p.bot.v -orient vertical -command {.p.bot.txt yview}
-scrollbar .p.bot.h -orient horizontal -command {.p.bot.txt xview}
+ttk::scrollbar .p.bot.v -orient vertical -command {.p.bot.txt yview}
+ttk::scrollbar .p.bot.h -orient horizontal -command {.p.bot.txt xview}
 text .p.bot.txt -wrap none -xscroll {.p.bot.h set} -yscroll {.p.bot.v set} -height 10 -font BottomCmdFont
 label .p.bot.label -background DarkGrey -foreground white -text "Compiler Output" -font TkSmallCaptionFont -relief flat -pady 0 -borderwidth 0
 
@@ -1658,14 +1726,18 @@ append tabLeaveScript \n [list after 200 [list destroy .balloonHelp]]
 bind .p.nb <Enter> $tabEnterScript
 bind .p.nb <Leave> $tabLeaveScript
 
-# bind to right mouse button on Linux and Windows
-
-if {[tk windowingsystem]=="aqua"} {
-    bind . <2> "tk_popup .popup1 %X %Y"
-    bind . <Control-1> "tk_popup .popup1 %X %Y"
-} else {
-    bind . <3> "tk_popup .popup1 %X %Y"
+proc NotebookChanged {} {
+    set idx [.p.nb index current]
+    set win [lindex [.p.nb tabs] $idx]
+    raise $win
 }
+
+if { [tk windowingsystem] == "aqua" } {
+    bind .p.nb <<NotebookTabChanged>> NotebookChanged
+}
+
+bind . <FocusIn> { checkFocusIn %W }
+bind . <FocusOut> { checkFocusOut %W }
 
 proc setHyperLinkResponse { w func } {
     set textcurs [::ttk::cursor text]

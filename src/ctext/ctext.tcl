@@ -498,7 +498,7 @@ proc ctext::instanceCmd {self cmd args} {
 		    ctext::matchPair $self "\\(" "\\)" ""
 		}
 		"\"" {
-		    ctext::matchQuote $self
+#		    ctext::matchQuote $self
 		}
 	    }
 	    ctext::modified $self 1

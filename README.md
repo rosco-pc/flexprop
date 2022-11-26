@@ -24,7 +24,7 @@ FlexProp is distributed under the MIT license; see the file License.txt for deta
 
 ### Spin enhancements
 
-The original Spin language is supported, with some enhancements from Spin2:
+The original Spin (Spin1) language is supported, with some enhancements from Spin2:
 
 * Generates optimized PASM instead of bytecode
 * `case_fast` to force `case` to produce a jump table
@@ -38,6 +38,8 @@ The original Spin language is supported, with some enhancements from Spin2:
 * Default parameter values for functions
 * Optional type specifiers for function parameters and return values
 * Automatic passing of strings as pointers in some cases
+
+If the file name ends in `.spin2`, then the standard Spin2 language is assumed, with some legacy features from Spin1 supported.
 
 See `doc/spin.md` for more details.
 
@@ -87,6 +89,8 @@ At the moment you'll have to build from source on Linux. Instructions are given 
 
 ### Linux
 
+#### Ubuntu
+
 Here are complete steps for building from scratch on a generic Ubuntu based platform. Note that the first few steps (setting up a directory for the source code) may be tweaked to suit your wishes. Also note that the steps involving `texlive-latex-recommended` and `pandoc` are only required for formatting the documentation; if you only want the binaries you may skip these.
 ```
 cd $HOME
@@ -109,6 +113,30 @@ make install INSTALL=/opt/flexprop
 ```
 
 To run, go to the flexprop installation directory and run `./flexprop`.
+
+#### Fedora 36
+
+See the above Ubuntu/Debian instructions for further details, but the basic steps are:
+```
+cd $HOME
+mkdir -p src
+cd src
+sudo dnf install @development-tools
+sudo dnf install gcc-c++
+sudo dnf install tk-devel
+sudo dnf install texlive-latex
+sudo dnf install pandoc
+sudo dnf install libXScrnSaver-devel
+git clone --recursive https://github.com/totalspectrum/flexprop
+cd flexprop
+make install INSTALL=~/flexprop
+cd ~/flexprop
+./flexprop
+```
+
+#### Other Linux versions
+
+For other Linux versions you'll have to install appropriate development tools. The lists above for Ubuntu and Fedora should give you a hint for what you'll need to install; unfortunately, package names are not standardized across distributions, so you may need to search on the Internet for appropriate replacements for your distro.
 
 ### Mac OS X
 
@@ -159,7 +187,7 @@ The scripts used are in the `src` subdirectory, so you can customize them to you
 
 # Supporting FlexProp development
 
-If you find FlexProp useful, please contribute to support its development. Contributions of code, documentation, and other suggestions are welcome. Monetary donations are also very welcome. The generous donations of our supporters on Patreon have enabled us to provide a signed Windows binary.
+If you find FlexProp useful, please contribute to support its development. Contributions of code, documentation, and other suggestions are welcome. Monetary donations are also very welcome. The generous donations of our supporters on Patreon have enabled us to provide signed binaries for Windows and Mac.
 
 To support FlexProp on Patreon: https://patreon.com/totalspectrum
 To support FlexProp on Paypal:  https://paypal.me/totalspectrum
